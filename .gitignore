@@ -1,0 +1,51 @@
+# Python缓存文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 虚拟环境
+venv/
+env/
+.venv/
+.env/
+
+# IDE配置
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志和临时文件
+logs/
+*.log
+temp/
+*.tmp
+
+# 输出和数据目录
+output/
+data/files/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# 配置文件（如有敏感信息可自行添加）
+*.env
+*.secret
+
+# Jupyter Notebook检查点
+.ipynb_checkpoints/
+
+# PDF和图片测试文件（如不希望上传可添加）
+input/
+output/
+ocr_result.json
+
+# 其他
+*.bak
+*.swp
+*.swo
