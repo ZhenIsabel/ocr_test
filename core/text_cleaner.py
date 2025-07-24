@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.config import TEXT_CLEAN_CONFIG
 from config.patterns import DATE_PATTERN, ID_NUMBER_PATTERN, MONEY_PATTERN
+from utils.helpers import setup_logger
 
 
 class TextCleaner:
@@ -29,6 +30,7 @@ class TextCleaner:
         Args:
             config: 配置信息，默认使用全局配置
         """
+        self.logger = setup_logger("text_cleaner", "logs/text_cleaner.log")
         self.config = config or TEXT_CLEAN_CONFIG
         # 加载停用词
         self.stopwords = self._load_stopwords()
@@ -57,10 +59,12 @@ class TextCleaner:
             str: 清理后的文本
         """
         if not text:
+            self.logger.info("clean_text: 清洗前文本为空")
             return ""
             
         # 1. 去除多余空格
         text = re.sub(r'\s+', ' ', text.strip())
+        self.logger.info("去除多余空格：", text)
         
         # 2. 合并断行
         text = self.merge_broken_lines(text)
@@ -156,6 +160,7 @@ class TextCleaner:
             Dict[str, Any]: 处理后的页面数据
         """
         text = page_data.get('text', '')
+        self.logger.info(f"处理页面文本: {text[:100]}")
         
         # 文本清洗
         cleaned_text = self.clean_text(text)
@@ -167,8 +172,10 @@ class TextCleaner:
         
         # 提取关键词
         keywords_tfidf = self.extract_keywords(cleaned_text, method='tfidf')
+        print(f"tfidf关键词: {keywords_tfidf}")
         keywords_textrank = self.extract_keywords(cleaned_text, method='textrank')
-        
+        print(f"textrank关键词: {keywords_textrank}")
+
         # 更新并返回结果
         result = page_data.copy()
         result.update({

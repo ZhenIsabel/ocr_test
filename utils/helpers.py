@@ -151,24 +151,6 @@ def format_date(date_str: str, input_format: str = "%Y年%m月%d日", output_for
     except ValueError:
         return date_str
 
-def format_money(amount: Union[str, float, int]) -> str:
-    """格式化金额
-    
-    Args:
-        amount: 金额
-        
-    Returns:
-        str: 格式化后的金额字符串
-    """
-    if isinstance(amount, str):
-        # 移除非数字字符
-        amount = re.sub(r'[^\d.]', '', amount)
-        try:
-            amount = float(amount)
-        except ValueError:
-            return amount
-    
-    return f"{amount:,.2f}"
 
 # 文件操作工具
 def ensure_dir(directory: str) -> None:

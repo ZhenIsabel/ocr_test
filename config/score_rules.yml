@@ -1,0 +1,123 @@
+doc_types:
+  房产证:
+    keywords:
+      must: ["房地产权证", "房地产证", "房屋所有权"]
+      optional: ["房地产证字", "房地产管理法", "建筑面积", "产权人", "权属人"]
+    regex:
+      - certificate_no
+      - unit_no
+      - location
+      - date
+      - area
+    score:
+      must_keyword: 20
+      optional_keyword: 5
+      regex_hit: 15
+      threshold: 60
+
+  购房合同:
+    keywords:
+      must: ["商品房买卖合同", "购房合同", "房屋买卖合同", "买卖合同"]
+      optional: ["甲方", "乙方", "出售方", "购买方", "价款", "首付", "交房", "面积"]
+    regex:
+      - contract_no
+      - location
+      - date
+      - price
+      - area
+    score:
+      must_keyword: 15
+      optional_keyword: 5
+      regex_hit: 10
+      threshold: 50
+
+  贷款合同:
+    keywords:
+      must: ["借款合同", "贷款合同", "抵押合同", "按揭合同"]
+      optional: ["贷款人", "借款人", "期限", "利率", "还款", "抵押", "银行"]
+    regex:
+      - contract_no
+      - date
+      - price
+      - id_card
+    score:
+      must_keyword: 15
+      optional_keyword: 5
+      regex_hit: 10
+      threshold: 55
+
+  发票:
+    keywords:
+      must: ["发票", "税务发票"]
+      optional: ["税务局", "购房发票", "金额", "税额", "价税合计"]
+    regex:
+      - date
+      - price
+    score:
+      must_keyword: 20
+      optional_keyword: 5
+      regex_hit: 10
+      threshold: 40
+
+  补充协议:
+    keywords:
+      must: ["补充协议", "补充合同", "合同附件", "附加协议"]
+      optional: ["双方协商", "约定", "变更", "修改", "条款"]
+    regex:
+      - contract_no
+      - date
+    score:
+      must_keyword: 20
+      optional_keyword: 5
+      regex_hit: 10
+      threshold: 50
+
+  身份证明:
+    keywords:
+      must: ["身份证", "护照", "户口簿", "营业执照"]
+      optional: ["姓名", "性别", "出生", "住址", "民族", "号码", "公民身份号码", "签发机关"]
+    regex:
+      - id_card
+      - date
+    score:
+      must_keyword: 25
+      optional_keyword: 5
+      regex_hit: 15
+      threshold: 45
+
+  不动产登记查册表:
+    keywords:
+      must: ["不动产登记资料查询", "查册表", "查询人", "查询事由"]
+      optional: ["登记机构", "查询结果", "权利人", "共有情况", "抵押情况"]
+    regex:
+      - unit_no
+      - certificate_no
+      - location
+      - date
+    score:
+      must_keyword: 15
+      regex_hit: 10
+      threshold: 50
+
+  直管房租赁合同:
+    keywords:
+      must: ["租赁合同", "直管房", "出租方", "承租方"]
+      optional: ["租金", "押金", "租期", "房屋用途", "交付日期"]
+    regex:
+      - contract_no
+      - location
+      - date
+      - price
+      - id_card
+    score:
+      must_keyword: 15
+      optional_keyword: 5
+      regex_hit: 10
+      threshold: 55
+
+  其它/未知:
+    keywords:
+      must: []
+    regex: []
+    score:
+      threshold: 0

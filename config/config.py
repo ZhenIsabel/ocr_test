@@ -55,5 +55,14 @@ STORAGE_CONFIG = {
 # 分类相关配置
 CLASSIFY_CONFIG = {
     "model_path": "./models/classifier.pkl",
-    "use_model": False,  # 是否使用模型分类，False则使用规则
+    "vectorizer_path": "./models/vectorizer.pkl",
+    "use_model": True,  # 是否使用模型分类
+    "rules_path": "./config/score_rules.yml",  # 评分规则文件路径
+    "samples_path": "./data/training_samples.pkl",  # 训练样本存储路径
+    "sample_score_threshold": 0.8,  # 高置信度样本阈值，用于自动收集训练样本
+    "model_confidence_threshold": 0.9,  # 模型高置信度阈值，用于自动收集训练样本
+    "classification_strategy": "hybrid",  # 分类策略: rules_only, model_only, hybrid
+    "auto_train": True,  # 是否在收集到新样本后自动训练模型
+    "incremental_learning": True,  # 是否启用增量学习
+    "min_samples_for_training": 10,  # 训练模型所需的最少样本数量
 } 

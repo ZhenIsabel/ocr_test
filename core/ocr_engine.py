@@ -162,7 +162,7 @@ class OCREngine:
         with open(input_file, "r", encoding="utf-8") as f:
             return json.load(f)
             
-    def extract_text(self, ocr_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_text(self, ocr_result: Union[Dict[str, Any], List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
         """从OCR结果中提取文本
         
         Args:
@@ -173,7 +173,16 @@ class OCREngine:
         """
         result = []
         
-        for item in ocr_result.get("OcrInfo", []):
+        items=[]
+        if isinstance(ocr_result, dict):
+            items = ocr_result.get("OcrInfo", [])  # 旧格式：{"OcrInfo": [...]}
+        elif isinstance(ocr_result, list):
+            items = ocr_result                      # 新格式：顶层就是一个 list
+        else:
+            raise TypeError(f"Unsupported ocr_result type: {type(ocr_result)}")
+
+
+        for item in items:
             text = item.get("Text", "")
             details = item.get("Detail", [])
             
@@ -214,6 +223,20 @@ if __name__ == "__main__":
     ocr_engine = OCREngine()
     print("OCR引擎初始化完成")
     
+
+    # 从url中ocr到结果
+    try:
+        url = "https://download-obs.cowcs.com/cowtransfer/cowtransfer/30466/f40caa628f80449594f908359d8c3675.pdf?auth_key=1752598135-4aa6ea237c5e452c9dc7a49bbb239a3b-0-999806cab939303390cf2e9dc67cabd0&biz_type=1&business_code=COW_TRANSFER&channel_code=COW_CN_WEB&response-content-disposition=attachment%3B%20filename%3D%25E3%2580%25902.%25E5%2590%2588%25E5%2590%258C%25E3%2580%2591%25E6%2588%25BF%25E5%25B1%258B%25E6%259F%25A5%25E9%25AA%258C%25E7%25AE%25A1%25E7%2590%2586%25E7%25B3%25BB%25E7%25BB%259F%25EF%25BC%2588%25E4%25B8%2580%25E6%259C%259F%25EF%25BC%2589%25E5%25BC%2580%25E5%258F%2591%25E6%259C%258D%25E5%258A%25A1%25E9%2587%2587%25E8%25B4%25AD%25E9%25A1%25B9%25E7%259B%25AE%25E5%2590%2588%25E5%2590%258C.pdf%3Bfilename*%3Dutf-8%27%27%25E3%2580%25902.%25E5%2590%2588%25E5%2590%258C%25E3%2580%2591%25E6%2588%25BF%25E5%25B1%258B%25E6%259F%25A5%25E9%25AA%258C%25E7%25AE%25A1%25E7%2590%2586%25E7%25B3%25BB%25E7%25BB%259F%25EF%25BC%2588%25E4%25B8%2580%25E6%259C%259F%25EF%25BC%2589%25E5%25BC%2580%25E5%258F%2591%25E6%259C%258D%25E5%258A%25A1%25E9%2587%2587%25E8%25B4%25AD%25E9%25A1%25B9%25E7%259B%25AE%25E5%2590%2588%25E5%2590%258C.pdf&user_id=1033100132874430466&x-verify=1"
+        result = ocr_engine.recognize_from_url(url, "pdf")
+        # 构造一个随机文件名
+        random_filename = f"ocr_result_{uuid.uuid4().hex}.json"
+        output_path = f"./output/{random_filename}"
+        ocr_engine.save_result(result, output_path)
+        print(f"OCR结果已保存到: {output_path}")
+    except Exception as e:
+        print(f"测试OCR文件时出错: {str(e)}") 
+
+
     # 加载已有的OCR结果进行测试
     try:
         result = ocr_engine.load_result("ocr_result.json")

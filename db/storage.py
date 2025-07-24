@@ -73,6 +73,8 @@ class DocumentStorage:
             page_count INTEGER,
             doc_type TEXT,
             doc_type_confidence REAL,
+            classification_method TEXT,
+            is_verified INTEGER DEFAULT 0,
             import_date TEXT,
             status TEXT,
             storage_path TEXT,
@@ -172,6 +174,8 @@ class DocumentStorage:
         # 获取分类信息
         doc_type = doc_classification.get('doc_type', '其他')
         doc_type_confidence = doc_classification.get('confidence', 0.0)
+        classification_method = doc_classification.get('method', 'rule')
+        is_verified = 1 if doc_classification.get('method') == 'verified' else 0
         
         # 获取匹配信息
         property_id = None
@@ -202,9 +206,10 @@ class DocumentStorage:
         cursor.execute(f'''
         INSERT INTO {self.db_config['table_prefix']}documents
         (file_id, file_name, original_path, file_md5, file_size, page_count,
-         doc_type, doc_type_confidence, import_date, status, storage_path,
+         doc_type, doc_type_confidence, classification_method, is_verified, 
+         import_date, status, storage_path,
          property_id, match_confidence, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             file_info.get('file_id'),
             file_info.get('file_name'),
@@ -214,6 +219,8 @@ class DocumentStorage:
             file_info.get('page_count'),
             doc_type,
             doc_type_confidence,
+            classification_method,
+            is_verified,
             file_info.get('import_date'),
             file_info.get('status', 'imported'),
             storage_path,
@@ -318,6 +325,61 @@ class DocumentStorage:
         
         self._conn.commit()
     
+    def update_document_classification(self, document_id: Union[int, str], classification: Dict[str, Any]) -> bool:
+        """更新文档的分类信息
+        
+        Args:
+            document_id: 文档ID
+            classification: 新的分类结果
+            
+        Returns:
+            bool: 是否更新成功
+        """
+        cursor = self._conn.cursor()
+        now = datetime.datetime.now().isoformat()
+        
+        doc_type = classification.get('doc_type', '其它/未知')
+        confidence = classification.get('confidence', 0.0)
+        method = classification.get('method', 'rule')
+        is_verified = 1 if method == 'verified' else 0
+        
+        try:
+            cursor.execute(f'''
+            UPDATE {self.db_config['table_prefix']}documents
+            SET doc_type = ?,
+                doc_type_confidence = ?,
+                classification_method = ?,
+                is_verified = ?,
+                updated_at = ?
+            WHERE id = ?
+            ''', (
+                doc_type,
+                confidence,
+                method,
+                is_verified,
+                now,
+                int(document_id)
+            ))
+            
+            # 更新页面类型
+            if 'page_types' in classification:
+                for page_type in classification['page_types']:
+                    page_index = page_type.get('page_index')
+                    page_doc_type = page_type.get('doc_type')
+                    
+                    cursor.execute(f'''
+                    UPDATE {self.db_config['table_prefix']}document_pages
+                    SET page_type = ?
+                    WHERE document_id = ? AND page_index = ?
+                    ''', (page_doc_type, int(document_id), page_index))
+            
+            self._conn.commit()
+            return True
+            
+        except Exception as e:
+            print(f"更新文档分类失败: {str(e)}")
+            return False
+    
     def save_json(self, data: Dict[str, Any], filename: str) -> str:
         """将数据保存为JSON文件
         
@@ -336,6 +398,104 @@ class DocumentStorage:
             json.dump(data, f, ensure_ascii=False, indent=2)
             
         return file_path
+    
+    def get_document(self, document_id: Union[int, str]) -> Dict[str, Any]:
+        """获取完整的文档信息
+        
+        Args:
+            document_id: 文档ID
+            
+        Returns:
+            Dict[str, Any]: 文档信息，包含原始数据、分类结果、页面信息等
+        """
+        doc_id = int(document_id)
+        cursor = self._conn.cursor()
+        
+        # 获取文档基本信息
+        cursor.execute(f'''
+        SELECT * FROM {self.db_config['table_prefix']}documents
+        WHERE id = ?
+        ''', (doc_id,))
+        
+        doc_row = cursor.fetchone()
+        if not doc_row:
+            return None
+            
+        doc_data = dict(doc_row)
+        
+        # 获取页面数据
+        cursor.execute(f'''
+        SELECT * FROM {self.db_config['table_prefix']}document_pages
+        WHERE document_id = ?
+        ORDER BY page_index
+        ''', (doc_id,))
+        
+        pages_data = []
+        for row in cursor.fetchall():
+            page_data = dict(row)
+            pages_data.append({
+                'page_index': page_data['page_index'],
+                'text': page_data['text'],
+                'cleaned_text': page_data['cleaned_text'],
+                'confidence': page_data['confidence'],
+                'page_type': page_data['page_type']
+            })
+            
+        doc_data['pages_data'] = pages_data
+        
+        # 获取提取的信息
+        cursor.execute(f'''
+        SELECT * FROM {self.db_config['table_prefix']}document_info
+        WHERE document_id = ?
+        ''', (doc_id,))
+        
+        info_rows = cursor.fetchall()
+        key_info = {}
+        page_info = []
+        
+        for row in info_rows:
+            info_data = dict(row)
+            
+            if info_data['info_type'] == 'key_info':
+                key_info[info_data['info_key']] = info_data['info_value']
+            else:
+                # 按页面组织信息
+                page_index = info_data.get('page_index')
+                
+                # 找到或创建页面信息
+                page_found = False
+                for page in page_info:
+                    if page['page_index'] == page_index:
+                        page_found = True
+                        
+                        # 找到或创建信息类型
+                        info_type = info_data['info_type']
+                        if info_type not in page['info']:
+                            page['info'][info_type] = []
+                            
+                        page['info'][info_type].append({
+                            'value': info_data['info_value'],
+                            'confidence': info_data['confidence']
+                        })
+                        break
+                
+                if not page_found and page_index is not None:
+                    page_info.append({
+                        'page_index': page_index,
+                        'info': {
+                            info_data['info_type']: [{
+                                'value': info_data['info_value'],
+                                'confidence': info_data['confidence']
+                            }]
+                        }
+                    })
+        
+        doc_data['extracted_info'] = {
+            'key_info': key_info,
+            'page_info': page_info
+        }
+        
+        return doc_data
     
     def get_document_by_id(self, document_id: int) -> Dict[str, Any]:
         """通过ID获取文档信息
@@ -441,7 +601,8 @@ if __name__ == "__main__":
     
     doc_classification = {
         'doc_type': '房产证',
-        'confidence': 0.85
+        'confidence': 0.85,
+        'method': 'rules'
     }
     
     doc_info = {
@@ -484,6 +645,19 @@ if __name__ == "__main__":
         # 测试获取文档
         doc = storage.get_document_by_id(doc_id)
         print(f"获取到文档: {doc['file_name']}, 类型: {doc['doc_type']}")
+        
+        # 测试更新文档分类
+        new_classification = {
+            'doc_type': '购房合同',
+            'confidence': 1.0,
+            'method': 'verified'
+        }
+        success = storage.update_document_classification(doc_id, new_classification)
+        print(f"更新文档分类结果: {'成功' if success else '失败'}")
+        
+        # 测试获取完整文档数据
+        full_doc = storage.get_document(doc_id)
+        print(f"获取完整文档数据成功，当前类型: {full_doc['doc_type']}, 方法: {full_doc['classification_method']}")
         
         # 测试列出文档
         docs = storage.list_documents()

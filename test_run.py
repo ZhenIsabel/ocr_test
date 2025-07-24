@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from main import DocumentProcessor
+from utils.helpers import setup_logger
 
 def test_extract_from_ocr_result():
     """测试从OCR结果提取信息"""
@@ -23,11 +24,7 @@ def test_extract_from_ocr_result():
     
     # 使用现有的OCR结果进行测试
     if os.path.exists('ocr_result.json'):
-        # 创建一个临时测试文件
-        test_file = 'temp/test_file.txt'
-        with open(test_file, 'w', encoding='utf-8') as f:
-            f.write("测试文件内容")
-            
+        test_file = 'ocr_result.json'
         # 处理文件
         result = processor.process_file(test_file)
         
@@ -50,6 +47,34 @@ def test_extract_from_ocr_result():
     else:
         print("找不到OCR结果文件")
 
+def test_text_cleaner():
+    """测试文本清洗"""
+    print("=== 测试文本清洗 ===")
+    
+    # 初始化处理器
+    processor = DocumentProcessor()
+    # 加载OCR结果
+    ocr_result=processor.ocr_engine.load_result("output/ocr_sample.json")
+    print(ocr_result[0:100])
+    # 提取文本
+    pages_data = processor.ocr_engine.extract_text(ocr_result)
+    # 处理文本
+    cleaned_pages=processor.text_cleaner.process_document(pages_data)
+    # 保存结果
+    # 将cleaned_pages保存为文本文件
+    with open("output/cleaned_pages.txt", "w", encoding="utf-8") as f:
+        for i in cleaned_pages:
+            f.write("tfidf关键词：")
+            f.write("\n")
+            f.write(str(i['keywords_tfidf']))
+            f.write("\n")
+            f.write("text关键词：")
+            f.write("\n")
+            f.write(str(i['keywords_textrank']))
+
+    print("清洗结果已保存到 output/cleaned_pages.txt")
+
+
 def run_all_tests():
     """运行所有测试"""
     test_extract_from_ocr_result()
@@ -57,6 +82,6 @@ def run_all_tests():
 if __name__ == "__main__":
     # 运行测试
     start_time = time.time()
-    run_all_tests()
+    test_text_cleaner()
     end_time = time.time()
     print(f"\n所有测试完成，耗时: {end_time - start_time:.2f} 秒") 
