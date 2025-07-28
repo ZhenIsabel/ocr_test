@@ -6,6 +6,7 @@
 用于测试项目的基本功能
 """
 
+from operator import mod
 import os
 import sys
 import time
@@ -74,6 +75,45 @@ def test_text_cleaner():
 
     print("清洗结果已保存到 output/cleaned_pages.txt")
 
+def test_document_classifier():
+    """测试文档分类"""
+    print("=== 测试文档分类 ===")
+    # 初始化处理器
+    processor = DocumentProcessor()
+    # 加载OCR结果
+    # ocr_result=processor.ocr_engine.load_result("output/ocr_quark_combine.json")
+    ocr_result=processor.ocr_engine.load_result("output/ocr_quark_seperate.json")
+    # 提取文本
+    pages_data = processor.ocr_engine.extract_text(ocr_result)
+    # 处理文本
+    cleaned_pages=processor.text_cleaner.process_document(pages_data)
+    # 对所有页面分类
+    classified_pages=processor.document_classifier.classify_document_pages(cleaned_pages)
+    # 保存结果
+    with open("output/classified_pages.txt", "w", encoding="utf-8") as f:  
+        index=1 
+        for i in classified_pages:
+            f.write("page"+str(index)+":\n")
+            f.write(str(i))
+            f.write("\n")
+            index+=1
+    print("分类结果已保存到 output/classified_pages.txt")
+    # 合并相同类别的页
+    class_start_indices=[] # 用来标记每个类别的开始页
+    for index in range(len(classified_pages)):
+        if index==0:
+            class_start_indices.append(0)
+        if classified_pages[index]['doc_type']!=classified_pages[index-1]['doc_type']:
+            class_start_indices.append(index)
+        if index==len(classified_pages)-1:
+            class_start_indices.append(index) # 结束页
+    # 正确打印每个类别的起止页和类别
+    for i in range(0, len(class_start_indices)-1):
+        start_page = class_start_indices[i] + 1
+        end_page = class_start_indices[i+1]
+        doc_type = classified_pages[class_start_indices[i]]['doc_type']
+        print(f"第{start_page}页到第{end_page}页是{doc_type}")
+
 
 def run_all_tests():
     """运行所有测试"""
@@ -82,6 +122,6 @@ def run_all_tests():
 if __name__ == "__main__":
     # 运行测试
     start_time = time.time()
-    test_text_cleaner()
+    test_document_classifier()
     end_time = time.time()
     print(f"\n所有测试完成，耗时: {end_time - start_time:.2f} 秒") 

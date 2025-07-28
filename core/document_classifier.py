@@ -25,6 +25,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.config import CLASSIFY_CONFIG
 from config.patterns import *  # 导入所有正则表达式模式
+from utils.helpers import setup_logger
 
 
 class DocumentClassifier:
@@ -41,6 +42,9 @@ class DocumentClassifier:
         self.model = None
         self.vectorizer = None
         
+        # 设置日志记录器
+        self.logger = setup_logger('document_classifier', 'logs/document_classifier.log')
+
         # 加载评分规则
         self.rules_path = self.config.get('rules_path', 'config/score_rules.yml')
         self.load_score_rules()
@@ -283,6 +287,7 @@ class DocumentClassifier:
                 if re.search(keyword, text, re.IGNORECASE):
                     must_count += 1
                     score += score_rules.get('must_keyword', 10)
+                    self.logger.info(f"匹配到必须关键词: {keyword}, 得分: {score_rules.get('must_keyword', 10)}")
             
             # 如果有必须关键词但一个都没匹配到，则这个类型不可能
             if must_keywords and must_count == 0:
@@ -294,12 +299,14 @@ class DocumentClassifier:
             for keyword in optional_keywords:
                 if re.search(keyword, text, re.IGNORECASE):
                     score += score_rules.get('optional_keyword', 5)
+                    self.logger.info(f"匹配到可选关键词: {keyword}, 得分: {score_rules.get('optional_keyword', 5)}")
             
             # 检查正则表达式
             regex_patterns = rules.get('regex', [])
             for regex_name in regex_patterns:
                 if self.evaluate_regex(text, regex_name):
                     score += score_rules.get('regex_hit', 10)
+                    self.logger.info(f"匹配到正则表达式: {regex_name}, 得分: {score_rules.get('regex_hit', 10)}")
             
             scores[doc_type] = score
         
@@ -323,6 +330,7 @@ class DocumentClassifier:
             }
         
         # 计算置信度 - 这里简单地用得分除以阈值，也可以用其他计算方式
+        self.logger.info(f"得分: {score}, 阈值: {threshold}")
         confidence = min(score / threshold if threshold > 0 else 0, 1.0)
         
         return {
@@ -369,7 +377,7 @@ class DocumentClassifier:
             return {'doc_type': '其它/未知', 'confidence': 0, 'probabilities': {}}
     
     def classify(self, document_text: str, is_verified: bool = False, verified_type: str = None) -> Dict[str, Any]:
-        """对文档进行分类
+        """对文档进行分类，主入口
         
         Args:
             document_text: 文档文本
@@ -428,10 +436,10 @@ class DocumentClassifier:
                 'model_probabilities': model_result.get('probabilities', {})
             }
         
-        # 如果规则分类未通过阈值且没有可用模型，使用规则中的候选类型或默认为"其他"
-        candidate_type = rule_result.get('candidate_type', '其它/未知')
+        # 如果规则分类未通过阈值且没有可用模型，默认为"其他"
+        # candidate_type = rule_result.get('candidate_type', '其它/未知')
         return {
-            'doc_type': candidate_type,
+            'doc_type': '其它/未知',
             'confidence': rule_result['confidence'],
             'method': 'rules_fallback',
             'rule_scores': rule_result.get('scores', {}),
@@ -447,12 +455,6 @@ class DocumentClassifier:
         Returns:
             Dict[str, Any]: 文档分类结果
         """
-        # 合并所有页面的文本
-        all_text = " ".join([page.get('cleaned_text', '') for page in pages_data])
-        
-        # 进行分类
-        classification = self.classify(all_text)
-        
         # 分析各页面的特征
         page_types = []
         for i, page in enumerate(pages_data):
@@ -465,10 +467,7 @@ class DocumentClassifier:
                 'method': page_classification['method']
             })
         
-        # 更新分类结果
-        classification['page_types'] = page_types
-        
-        return classification
+        return page_types
 
 
 # 测试代码

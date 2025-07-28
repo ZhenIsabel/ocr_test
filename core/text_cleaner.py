@@ -64,7 +64,7 @@ class TextCleaner:
             
         # 1. 去除多余空格
         text = re.sub(r'\s+', ' ', text.strip())
-        self.logger.info("去除多余空格：", text)
+        self.logger.info("去除多余空格：%s", text)
         
         # 2. 合并断行
         text = self.merge_broken_lines(text)
@@ -160,7 +160,7 @@ class TextCleaner:
             Dict[str, Any]: 处理后的页面数据
         """
         text = page_data.get('text', '')
-        self.logger.info(f"处理页面文本: {text[:100]}")
+        self.logger.info(f"处理页面文本: {text[:50]}")
         
         # 文本清洗
         cleaned_text = self.clean_text(text)
@@ -170,11 +170,11 @@ class TextCleaner:
         id_numbers = self.extract_id_numbers(cleaned_text)
         money_items = self.extract_money(cleaned_text)
         
-        # 提取关键词
-        keywords_tfidf = self.extract_keywords(cleaned_text, method='tfidf')
-        print(f"tfidf关键词: {keywords_tfidf}")
-        keywords_textrank = self.extract_keywords(cleaned_text, method='textrank')
-        print(f"textrank关键词: {keywords_textrank}")
+        # # 提取关键词
+        # keywords_tfidf = self.extract_keywords(cleaned_text, method='tfidf')
+        # print(f"tfidf关键词: {keywords_tfidf}")
+        # keywords_textrank = self.extract_keywords(cleaned_text, method='textrank')
+        # print(f"textrank关键词: {keywords_textrank}")
 
         # 更新并返回结果
         result = page_data.copy()
@@ -183,8 +183,8 @@ class TextCleaner:
             'dates': dates,
             'id_numbers': id_numbers,
             'money_items': money_items,
-            'keywords_tfidf': keywords_tfidf,
-            'keywords_textrank': keywords_textrank
+            # 'keywords_tfidf': keywords_tfidf,
+            # 'keywords_textrank': keywords_textrank
         })
         
         return result
