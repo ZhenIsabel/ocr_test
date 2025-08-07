@@ -11,6 +11,7 @@ import sys
 import re
 from typing import Dict, List, Any, Tuple, Optional
 import numpy as np
+# import spacy
 
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,6 +45,28 @@ class InfoExtractor:
             'date': 50
         }
     
+
+    def extract_with_nlp(text: str, context_size: int):
+        return
+        nlp = spacy.load("zh_core_web_sm")
+        doc = nlp(text)
+        results = []
+        
+        for ent in doc.ents:
+            start_pos = max(0, ent.start_char - context_size)
+            end_pos = min(len(text), ent.end_char + context_size)
+            
+            results.append({
+                'value': ent.text,
+                'entity_type': ent.label_,
+                'pre_context': text[start_pos:ent.start_char].strip(),
+                'post_context': text[ent.end_char:end_pos].strip(),
+                'start': ent.start_char,
+                'end': ent.end_char
+            })
+        return results
+
+
     def extract_with_context(self, text: str, pattern, context_size: int) -> List[Dict[str, Any]]:
         """提取匹配模式的内容及其上下文
         
@@ -264,40 +287,233 @@ class InfoExtractor:
         """
         key_info = {}
         
-        # 提取证书编号
+        # 提取证书编号 - 基于格式和位置权重
         if all_info['cert_numbers']:
-            key_info['cert_number'] = all_info['cert_numbers'][0]['value']
+            key_info['cert_number'] = self._select_best_candidate(
+                all_info['cert_numbers'], 
+                'cert_number'
+            )
         
-        # 提取合同编号
+        # 提取合同编号 - 基于格式和上下文
         if all_info['contract_numbers']:
-            key_info['contract_number'] = all_info['contract_numbers'][0]['value']
+            key_info['contract_number'] = self._select_best_candidate(
+                all_info['contract_numbers'], 
+                'contract_number'
+            )
         
-        # 提取身份证号
+        # 提取身份证号 - 基于格式验证
         if all_info['id_numbers']:
-            key_info['id_number'] = all_info['id_numbers'][0]['value']
+            key_info['id_number'] = self._select_best_candidate(
+                all_info['id_numbers'], 
+                'id_number'
+            )
         
-        # 提取地址
+        # 提取地址 - 基于长度和完整性
         if all_info['addresses']:
-            # 选择最长的地址作为主要地址
-            key_info['address'] = max(all_info['addresses'], key=lambda x: len(x['value']))['value']
+            key_info['address'] = self._select_best_candidate(
+                all_info['addresses'], 
+                'address'
+            )
         
-        # 提取房号
+        # 提取房号 - 基于格式和位置
         if all_info['house_numbers']:
-            key_info['house_number'] = all_info['house_numbers'][0]['value']
+            key_info['house_number'] = self._select_best_candidate(
+                all_info['house_numbers'], 
+                'house_number'
+            )
         
-        # 提取面积
+        # 提取面积 - 基于数值合理性
         if all_info['areas']:
-            key_info['area'] = all_info['areas'][0]['value']
+            key_info['area'] = self._select_best_candidate(
+                all_info['areas'], 
+                'area'
+            )
         
-        # 提取最重要的日期（第一个）
+        # 提取最重要的日期 - 基于上下文和格式
         if all_info['dates']:
-            key_info['date'] = all_info['dates'][0]['value']
+            key_info['date'] = self._select_best_candidate(
+                all_info['dates'], 
+                'date'
+            )
         
-        # 提取最大金额
+        # 提取最大金额 - 基于数值大小和上下文
         if all_info['money_amounts']:
-            key_info['money'] = max(all_info['money_amounts'], key=lambda x: float(x['amount'].replace(',', '')))['value']
+            key_info['money'] = self._select_best_candidate(
+                all_info['money_amounts'], 
+                'money'
+            )
         
         return key_info
+
+    def _select_best_candidate(self, candidates: List[Dict[str, Any]], info_type: str) -> str:
+        """选择最佳候选值
+        
+        Args:
+            candidates: 候选值列表
+            info_type: 信息类型
+            
+        Returns:
+            str: 最佳候选值
+        """
+        if not candidates:
+            return ""
+        
+        if len(candidates) == 1:
+            return candidates[0]['value']
+        
+        # 计算每个候选值的综合得分
+        scored_candidates = []
+        for candidate in candidates:
+            score = self._calculate_candidate_score(candidate, info_type)
+            scored_candidates.append((candidate, score))
+        
+        # 按得分排序，选择最高分
+        scored_candidates.sort(key=lambda x: x[1], reverse=True)
+        return scored_candidates[0][0]['value']
+
+    def _calculate_candidate_score(self, candidate: Dict[str, Any], info_type: str) -> float:
+        """计算候选值的综合得分
+        
+        Args:
+            candidate: 候选值
+            info_type: 信息类型
+            
+        Returns:
+            float: 综合得分
+        """
+        score = 0.0
+        value = candidate['value']
+        
+        # 基础分数：格式验证
+        format_score = self._validate_format(value, info_type)
+        score += format_score * 0.3
+        
+        # 上下文分数：前后文的相关性
+        context_score = self._analyze_context(candidate, info_type)
+        score += context_score * 0.3
+        
+        # 位置分数：在文档中的位置
+        position_score = self._analyze_position(candidate)
+        score += position_score * 0.2
+        
+        # 置信度分数：基于提取质量
+        confidence_score = self._calculate_confidence(candidate)
+        score += confidence_score * 0.2
+        
+        return score
+
+    def _validate_format(self, value: str, info_type: str) -> float:
+        """验证格式并返回分数
+        
+        Args:
+            value: 值
+            info_type: 信息类型
+            
+        Returns:
+            float: 格式分数
+        """
+        from config.patterns import (
+            PROPERTY_CERT_PATTERN, CONTRACT_NUMBER_PATTERN, ID_NUMBER_PATTERN,
+            DATE_PATTERN, MONEY_PATTERN, ADDRESS_PATTERN, HOUSE_NUMBER_PATTERN, AREA_PATTERN
+        )
+        
+        # 使用已有的pattern进行验证
+        format_patterns = {
+            'cert_number': PROPERTY_CERT_PATTERN,
+            'contract_number': CONTRACT_NUMBER_PATTERN,
+            'id_number': ID_NUMBER_PATTERN,
+            'house_number': HOUSE_NUMBER_PATTERN,
+            'area': AREA_PATTERN,
+            'money': MONEY_PATTERN,
+            'date': DATE_PATTERN,
+            'address': ADDRESS_PATTERN
+        }
+        
+        pattern = format_patterns.get(info_type)
+        if pattern and pattern.search(value):
+            return 1.0
+        elif pattern:
+            return 0.5  # 部分匹配
+        else:
+            return 0.8  # 无格式要求
+
+    def _analyze_context(self, candidate: Dict[str, Any], info_type: str) -> float:
+        """分析上下文相关性
+        
+        Args:
+            candidate: 候选值
+            info_type: 信息类型
+            
+        Returns:
+            float: 上下文分数
+        """
+        pre_context = candidate.get('pre_context', '')
+        post_context = candidate.get('post_context', '')
+        full_context = pre_context + post_context
+        
+        # 定义关键词映射
+        context_keywords = {
+            'cert_number': ['证书', '编号', '证号', '证书编号'],
+            'contract_number': ['合同', '协议', '合同编号', '协议编号'],
+            'id_number': ['身份证', '身份证号', '身份证明'],
+            'address': ['地址', '坐落', '位于', '位置'],
+            'house_number': ['房号', '房间', '室号', '门牌'],
+            'area': ['面积', '建筑面积', '使用面积'],
+            'money': ['金额', '价格', '总价', '价款', '费用'],
+            'date': ['日期', '时间', '签订', '生效']
+        }
+        
+        keywords = context_keywords.get(info_type, [])
+        if not keywords:
+            return 0.5
+        
+        # 计算关键词匹配度
+        matches = sum(1 for keyword in keywords if keyword in full_context)
+        return min(matches / len(keywords), 1.0)
+
+    def _analyze_position(self, candidate: Dict[str, Any]) -> float:
+        """分析位置信息
+        
+        Args:
+            candidate: 候选值
+            
+        Returns:
+            float: 位置分数
+        """
+        # 假设文档开头的信息更重要
+        start_pos = candidate.get('start', 0)
+        # 这里可以根据实际文档长度进行归一化
+        # 暂时使用简单的线性衰减
+        return max(0.1, 1.0 - start_pos / 10000)  # 假设文档最大10000字符
+
+    def _calculate_confidence(self, candidate: Dict[str, Any]) -> float:
+        """计算置信度
+        
+        Args:
+            candidate: 候选值
+            
+        Returns:
+            float: 置信度分数
+        """
+        # 基于提取质量计算置信度
+        value = candidate.get('value', '')
+        
+        # 长度合理性
+        if len(value) < 2:
+            return 0.1
+        elif len(value) > 100:
+            return 0.3
+        
+        # 字符类型多样性
+        char_types = 0
+        if any(c.isdigit() for c in value):
+            char_types += 1
+        if any(c.isalpha() for c in value):
+            char_types += 1
+        if any(c in '年月日时分秒' for c in value):
+            char_types += 1
+        
+        return min(char_types / 3, 1.0)
 
 
 # 测试代码

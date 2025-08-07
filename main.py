@@ -8,12 +8,8 @@
 
 import os
 import sys
-import time
 import argparse
-import logging
 from typing import Dict, List, Any, Optional
-import pandas as pd
-
 # 添加项目根目录到路径
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -164,6 +160,7 @@ class DocumentProcessor:
             self.logger.info(f"开始处理文件: {file_path}")
             
             # # 1. 文件预处理
+            # 此处为测试数据
             file_info={
             'file_id': 'test',
             'original_path': os.path.abspath(file_path),

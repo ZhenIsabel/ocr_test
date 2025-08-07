@@ -64,17 +64,18 @@ class TextCleaner:
             
         # 1. 去除多余空格
         text = re.sub(r'\s+', ' ', text.strip())
-        self.logger.info("去除多余空格：%s", text)
         
         # 2. 合并断行
         text = self.merge_broken_lines(text)
+        
+        # 2.5 去除中文之间的空格
+        text = re.sub(r'(?<=[\u4e00-\u9fa5])\s+(?=[\u4e00-\u9fa5])', '', text)
         
         # 3. 去除特殊字符（保留中文、英文、数字、基本标点）
         text = re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9\.\,\，\。\!\?\-\:\：\%\;\(\)\（\）\《\》\【\】]', ' ', text)
         
         # 4. 再次去除多余空格
-        text = re.sub(r'\s+', ' ', text.strip())
-        
+        self.logger.info("清洗后文本：%s", text)
         return text
     
     def merge_broken_lines(self, text: str) -> str:
@@ -86,8 +87,8 @@ class TextCleaner:
         Returns:
             str: 合并断行后的文本
         """
-        # 将换行符替换为空格，但保留段落换行（连续两个或以上的换行）
-        text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
+        # 将换行符删除，但保留段落换行（连续两个或以上的换行）
+        text = re.sub(r'(?<!\n)\n(?!\n)', '', text)
         
         # 将多个连续换行符替换为两个换行符
         text = re.sub(r'\n{2,}', '\n\n', text)

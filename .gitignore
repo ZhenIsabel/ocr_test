@@ -49,3 +49,6 @@ ocr_result.json
 *.bak
 *.swp
 *.swo
+data/sample_property_db.csv
+data/sample_property_db.csv
+data/training_samples.pkl

@@ -56,7 +56,7 @@ def test_text_cleaner():
     processor = DocumentProcessor()
     # 加载OCR结果
     ocr_result=processor.ocr_engine.load_result("output/ocr_sample.json")
-    print(ocr_result[0:100])
+    
     # 提取文本
     pages_data = processor.ocr_engine.extract_text(ocr_result)
     # 处理文本
@@ -81,8 +81,8 @@ def test_document_classifier():
     # 初始化处理器
     processor = DocumentProcessor()
     # 加载OCR结果
-    # ocr_result=processor.ocr_engine.load_result("output/ocr_quark_combine.json")
-    ocr_result=processor.ocr_engine.load_result("output/ocr_quark_seperate.json")
+    ocr_result=processor.ocr_engine.load_result("output/ocr_quark_combine.json")
+    # ocr_result=processor.ocr_engine.load_result("output/ocr_quark_seperate.json")
     # 提取文本
     pages_data = processor.ocr_engine.extract_text(ocr_result)
     # 处理文本
@@ -115,6 +115,45 @@ def test_document_classifier():
         print(f"第{start_page}页到第{end_page}页是{doc_type}")
 
 
+def test_matcher():
+    """测试文档匹配"""
+    # 设置日志
+    logger = setup_logger("test", "logs/test.log")
+    logger.info("初始化文档处理器...")
+    # 初始化处理器
+    processor = DocumentProcessor()
+    # 加载OCR结果
+    ocr_result=processor.ocr_engine.load_result("output/ocr_quark_combine.json")
+    # 提取文本
+    logger.info("提取文本...")
+    pages_data = processor.ocr_engine.extract_text(ocr_result)
+    # 处理文本
+    logger.info("处理文本...")
+    cleaned_pages=processor.text_cleaner.process_document(pages_data)
+    # 6. 信息提取
+    logger.info("信息提取...")
+    doc_info = processor.info_extractor.extract_document_info(cleaned_pages)
+    logger.info("信息提取完成")
+    # 7. 文档匹配
+    match_result = None
+    try:
+        db_path="data/sample_property_db.csv"
+        logger.info(f"加载房源数据库: {db_path}")
+        from core.matcher import DocumentMatcher
+        processor.document_matcher = DocumentMatcher()
+        processor.document_matcher.load_property_db(db_path)
+    except Exception as e:
+        logger.error(f"加载房源数据库失败: {str(e)}")
+
+    if processor.document_matcher:
+        match_result = processor.document_matcher.match_document(doc_info)
+        if match_result.get('auto_match'):
+            logger.info(f"文档匹配完成，匹配到房源: {match_result['auto_match']['property_id']}")
+        else:
+            logger.info("文档匹配完成，未找到匹配的房源")
+    else:
+        logger.warning("房源数据库未加载，跳过匹配步骤")
+
 def run_all_tests():
     """运行所有测试"""
     test_extract_from_ocr_result()
@@ -122,6 +161,6 @@ def run_all_tests():
 if __name__ == "__main__":
     # 运行测试
     start_time = time.time()
-    test_document_classifier()
+    test_matcher()
     end_time = time.time()
     print(f"\n所有测试完成，耗时: {end_time - start_time:.2f} 秒") 

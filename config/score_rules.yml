@@ -2,7 +2,7 @@ doc_types:
   房产证:
     keywords:
       must: ["房地产权证", "房地产证", "房屋所有权"]
-      optional: ["房地产证字", "房地产管理法", "建筑面积", "产权人", "权属人"]
+      optional: ["房地产证字", "房地产管理法", "建筑面积", "产权人", "权属人","对申请登记的本证所列房地","土地使用权人的合法权益"]
     regex:
       - certificate_no
       - unit_no
@@ -13,7 +13,7 @@ doc_types:
       must_keyword: 20
       optional_keyword: 5
       regex_hit: 15
-      threshold: 60
+      threshold: 40
 
   购房合同:
     keywords:
